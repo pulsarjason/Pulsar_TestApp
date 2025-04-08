@@ -20,6 +20,8 @@ var device;
 var isIgnore = 0;
 var isIgnore_2 = 0;
 
+let BootLoader_launced = false; // Flag for modal launch
+
 // Define the CodeLess UUIDs
 var CODELESS_SVC_UUID = "866d3b04-e674-40dc-9c05-b7f91bec6e83";
 var INBOUND_CHAR_UUID = "914f8fb9-e8cd-411d-b7d1-14594de45425";
