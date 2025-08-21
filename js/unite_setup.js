@@ -584,6 +584,18 @@ async function openShellModal() {
   document.getElementById("modal_shell").style.display = "block";
   document.getElementById("modalOverlayshell").style.display = "block";
   document.getElementById("shell_textbox").innerHTML = "";
+
+  // Override size of the shell textbox here if using a phone
+  if (
+    navigator.userAgent.match(/iPad|iPod|iPhone/i) || // Using iPhone
+    navigator.userAgent.match(/Android/i) || // Using android phone
+    navigator.userAgent.match(/BlackBerry/i) || // Using Blackberry
+    navigator.userAgent.match(/IEMobile/i) // Using window phone
+  ) {
+    document.getElementById("shell_textbox").style.height = "500px";
+    document.getElementById("shell_textbox").style.width = "800px";
+  }
+
   document.getElementById("sendShellCommandButton").disabled = false;
   document.getElementById("sendShellCommandButton").style.backgroundColor = "#33B34A"; // ON state (Pulsar Green)
   document.getElementById("sendShellCommandButton").style.cursor = "default";
@@ -713,7 +725,7 @@ function sendShellCommand() {
     return;
   }
 
-/*
+  /*
   // Not yet done, comment it first
   if (sendingShellCommand == 0) {
     sendingShellCommand = 1; // Set flag
