@@ -20,13 +20,13 @@ var device;
 var isIgnore = 0;
 var isIgnore_2 = 0;
 
-let BootLoader_launced = false; // Flag for modal launch
-
 // Define the CodeLess UUIDs
 var CODELESS_SVC_UUID = "866d3b04-e674-40dc-9c05-b7f91bec6e83";
 var INBOUND_CHAR_UUID = "914f8fb9-e8cd-411d-b7d1-14594de45425";
 var OUTBOUND_CHAR_UUID = "3bb535aa-50b2-4fbe-aa09-6b06dc59a404";
 var CNTRL_CHAR_UUID = "e2048b39-d4f9-4a45-9f25-1856c10d5639";
+
+var temp_string = "";
 
 let options = {
   filters: [
@@ -75,7 +75,7 @@ var level_var,
   near_blanking_var,
   far_blanking_var,
   empty_distance,
-  mode_var,
+  //mode_var,  // not used
   bit0,
   bit1,
   bit2,
@@ -116,7 +116,7 @@ near_blanking_var = 0.3;
 far_blanking_var = 20.0; //6.0;
 far_blanking_dist = 7.2;
 empty_distance = 6.0;
-mode_var = 6.0;
+//mode_var = 6.0;  // not used
 p104_units_val = 1;
 p605_units_val = 3;
 p104_units = "m";
@@ -197,6 +197,7 @@ let reboot_flag = 0;
 // let save_settings = 0;
 
 let cloudModal_open = 0;
+let shell_open = 0;
 
 // GLOBAL LOADING VARS:
 let currentProgress;
@@ -206,6 +207,8 @@ let totalSteps;
 let isReflectE = 0;
 
 let receiveBufferBT = "";
+
+let shouldEncode = true; // Flag to determine if encoding is needed for BT commands
 
 // Resetting all the variables
 function reset_params() {
@@ -229,7 +232,7 @@ function reset_params() {
   far_blanking_var = 20.0;
   far_blanking_dist = 7.2;
   empty_distance = 6.0;
-  mode_var = 6.0;
+  //mode_var = 6.0; // not used
   p104_units_val = 1;
   p605_units_val = 3;
   p104_units = "m";
@@ -732,6 +735,7 @@ function trace_button_check() {
         contSensorMode_bt();
         param_set1_tid = setInterval(param_set1_start, 1500);
       } else if (connectionType === "bluetooth") {
+        delay(1000);
         sendAT("/WHO");
         CommandSent = "/WHO";
         isIgnore = 0;
@@ -1120,6 +1124,7 @@ function hexToFloat(hex) {
   return ((s * ((hex & 0x7fffff) | 0x800000) * 1.0) / Math.pow(2, 23)) * Math.pow(2, e - 127);
 }
 
+// For decode BT data
 // Function to convert unsigned int 8 bit format to hex and relevant functions within it
 function Uint8tohex(incoming_data) {
   a = [];
@@ -1129,18 +1134,21 @@ function Uint8tohex(incoming_data) {
   const doc_value = CommandSent; //document.getElementById('cmd').value;
   for (let i = 0; i < s.byteLength; i++) {
     check = s.getUint8(i);
-    if (i >= 46 && i < 246 && doc_value == "GET ECHO") {
-      //(((doc_value == "GET ECHO") && (button_press == 8)) || (button_press == 10))) // Changed from (i >= 42) && (i < 242)
-      echo[i - 46] = (check * 1000) / 255; // Changed from echo[i-42]
-    } else if (i >= 46 && i < 246 && doc_value == "GET DATEM") {
-      //(((doc_value == "GET DATEM") && (button_press == 8)) || (button_press == 11)))  // Changed from (i >= 42) && (i < 242)
-      datem[i - 46] = (check * 1000) / 255; // Changed from datem[i-42]
+    // Only do update echo/datem if the recevied correct byte length
+    if (s.byteLength == 247) {
+      if (i >= 46 && i <= 246 && doc_value == "GET ECHO") {
+        //(((doc_value == "GET ECHO") && (button_press == 8)) || (button_press == 10))) // Changed from (i >= 42) && (i < 242)
+        echo[i - 46] = (check * 1000) / 255; // Changed from echo[i-42]
+      } else if (i >= 46 && i <= 246 && doc_value == "GET DATEM") {
+        //(((doc_value == "GET DATEM") && (button_press == 8)) || (button_press == 11)))  // Changed from (i >= 42) && (i < 242)
+        datem[i - 46] = (check * 1000) / 255; // Changed from datem[i-42]
+      }
     }
     // a.push(s.getUint8(i));
     a.push("0x" + ("00" + s.getUint8(i).toString(16)).slice(-2));
   }
 
-  if (doc_value == "GET ECHO" || (doc_value == "GET DATEM" && s.byteLength == 246)) {
+  if ((doc_value == "GET ECHO" || doc_value == "GET DATEM") && s.byteLength == 247) {
     // Populate the dynamic variables
     level_var = hexToFloat(
       "0x" +
@@ -1212,6 +1220,8 @@ function Uint8tohex(incoming_data) {
         ("00" + s.getUint8(45).toString(16)).slice(-2)
     ); //hexToFloat('0x' + ('00' + s.getUint8(50).toString(16)).slice(-2) + ('00' + s.getUint8(51).toString(16)).slice(-2) + ('00' + s.getUint8(52).toString(16)).slice(-2) + ('00' + s.getUint8(53).toString(16)).slice(-2));
     compensated_var_m = convert_to_mtrs(compensated_var);
+    /* 
+    // Not used mode_var any more.
     if (Math.round(compensated_var_m) == 24.0) {
       mode_var = 20.0;
     } else if (compensated_var_m.toFixed(1) == 9.6) {
@@ -1219,11 +1229,12 @@ function Uint8tohex(incoming_data) {
     } else {
       mode_var = 40.0;
     }
+*/
     far_blanking_dist = (empty_distance * (100.0 + far_blanking_var)) / 100.0;
     near_blanking_var = convert_to_measurement_units(near_blanking_var);
     far_blanking_dist = convert_to_measurement_units(far_blanking_dist);
     empty_distance = convert_to_measurement_units(empty_distance);
-    mode_var = convert_to_measurement_units(mode_var);
+    //mode_var = convert_to_measurement_units(mode_var); // not used
 
     var xdata = [];
     xdata[0] = 0.0;
@@ -1237,7 +1248,8 @@ function Uint8tohex(incoming_data) {
     myChart.data.labels = xdata;
     myChart.config.options.scales.x.title.text = p104_units;
     myChart.update();
-  } else if (doc_value == "SENDPART1" && incoming_data.byteLength == 240) {
+  } else if (doc_value == "SENDPART1" && s.byteLength == 241) {
+    // 241 = 60 * 4 + 1
     offset = 0;
     for (let i = 0; i < 60; i++) {
       param_verify(i);
@@ -1246,7 +1258,8 @@ function Uint8tohex(incoming_data) {
     //console.log("Got Part1");
     param_set2_start();
     param_set2_tid = setInterval(param_set2_start, 5000);
-  } else if (doc_value == "SENDPART2") {
+  } else if (doc_value == "SENDPART2" && s.byteLength == 241) {
+    // 241 = 60 * 4 + 1
     offset = 1;
     for (let i = 0; i < 60; i++) {
       param_verify(i);
@@ -1254,7 +1267,10 @@ function Uint8tohex(incoming_data) {
     //console.log("Got Part2");
     param_set3_start();
     param_set3_tid = setInterval(param_set3_start, 5000);
-  } else if (doc_value == "SENDPART3") {
+  } else if (doc_value == "SENDPART3" && s.byteLength == 153) {
+    // (param_info.length - offset * 60) * 4 + 1
+    // = (158 - 2*60) * 4 + 1
+    // = 153
     offset = 2;
     for (let i = 0; i < param_info.length - offset * 60; i++) {
       param_verify(i);
@@ -1810,6 +1826,7 @@ async function listenRX() {
               appendShell(receiveBufferASCII);
             }
             if (!BootLoader_launced) {
+              //console.log("USB<-" + receiveBufferHex); // debug only
               await processReceivedData();
             }
           }
@@ -2235,6 +2252,8 @@ async function processReceivedData() {
 function hexToInt16(hex1, hex2) {
   return (parseInt(hex1, 16) << 8) + parseInt(hex2, 16);
 }
+
+// For decode USB data
 // Function to convert unsigned int 8 bit format to hex and relevant functions within it
 function interpretHex(incoming_data) {
   a = [];
@@ -2275,6 +2294,8 @@ function interpretHex(incoming_data) {
     far_blanking_var = getVal(9.5);
     empty_distance = getVal(10.5);
     compensated_var_m = convert_to_mtrs(compensated_var);
+    /*
+    // Not use mode_var any more.
     if (Math.round(compensated_var_m) == 24.0) {
       mode_var = 20.0;
     } else if (compensated_var_m.toFixed(1) == 9.6) {
@@ -2282,11 +2303,12 @@ function interpretHex(incoming_data) {
     } else {
       mode_var = 40.0;
     }
+*/
     far_blanking_dist = (empty_distance * (100.0 + far_blanking_var)) / 100.0;
     near_blanking_var = convert_to_measurement_units(near_blanking_var);
     far_blanking_dist = convert_to_measurement_units(far_blanking_dist);
     empty_distance = convert_to_measurement_units(empty_distance);
-    mode_var = convert_to_measurement_units(mode_var);
+    //mode_var = convert_to_measurement_units(mode_var); // not used
 
     var xdata = [];
     xdata[0] = 0.0;
@@ -2394,6 +2416,19 @@ async function incomingData(event) {
         doc_value == "SENDPART2" ||
         doc_value == "SENDPART3"
       ) {
+/*
+        // --------------------------------------------------------------------------
+        // For debug in console only
+        const now = new Date();
+        const hours = now.getHours().toString().padStart(2, "0");
+        const minutes = now.getMinutes().toString().padStart(2, "0");
+        const seconds = now.getSeconds().toString().padStart(2, "0");
+        const milliseconds = now.getMilliseconds().toString().padStart(3, "0");
+        const localTimeWithMs = `${hours}:${minutes}:${seconds}.${milliseconds}`;
+        console.log(localTimeWithMs + " - BT2<-" + string_check);
+        // -------------------------------------------------------------------------
+*/
+
         var hex = Uint8tohex(readInValue);
         // if((button_press == 10) || ((button_press == 8) && (doc_value == "GET ECHO")))
         //   log(" ← ECHO Received");
@@ -2420,7 +2455,7 @@ async function incomingData(event) {
             for (var i = 0, len = elements.length; i < len; i++) document.getElementById(elements[i].id).style.background = "#33B34A"; //PULSAR GREEN
 
             //sendATL('AT+PT=1');
-            sendAT("AT+PWRLVL");
+            await sendAT("AT+PWRLVL");
             setTimeout(ptLModeON, 1000);
             // FOR BT DEMO COMMENT THE FOLLOWING
             setTimeout(trace_button_check, 5000); //2000); // UNDER TEST 1
@@ -2453,13 +2488,18 @@ async function incomingData(event) {
                 update_range(parseInt(string_check));
                 // Add a send for "Reflect_fw_end" here to ensure that at the
                 // beginning of bt comms, the Unite keeps the bootload pin low and resets the host
-                sendAT("Reflect_fw_end");
+                await sendAT("Reflect_fw_end");
                 await delay(1000);
               } else if (cmd_sent == "AT+PWRLVL=") {
                 if (string_check.includes("ERROR")) update_range(power_lvl);
                 else if (string_check.includes("OK")) update_range(new_power_lvl);
               }
-              log(" ← " + string_check);
+
+              if (shell_open == 1 || cloudModal_open == 1) {
+                // Dont log the command in the DATA LOG
+              } else {
+                log(" ← " + string_check);
+              }
             }
           }
           if (string_check.includes("REFLECT-E") && doc_value == "/WHO") {
@@ -2467,6 +2507,8 @@ async function incomingData(event) {
             document.querySelector(".static_image img").src = "img/Picture1.png";
             document.getElementById("btngenfile").style.display = "";
             document.getElementById("btnbl").style.display = "";
+            document.getElementById("btncloudsetup").style.display = ""; // Show Cloud setting
+
             const reflecte_metrics = parseMetrics(string_check); // Parse the metrics from data
             // Extract specific device information
             const reflecte_name = reflecte_metrics.reflect;
@@ -2630,20 +2672,608 @@ async function incomingData(event) {
 
             handle_breakpoint_update(string_check);
           }
+
+          // =================================================================================
+          // This part handle BT shell reply
+
+          // ------------------------------------------------------------------------------
+          // For debug in console only
+          const now = new Date();
+          const hours = now.getHours().toString().padStart(2, "0");
+          const minutes = now.getMinutes().toString().padStart(2, "0");
+          const seconds = now.getSeconds().toString().padStart(2, "0");
+          const milliseconds = now.getMilliseconds().toString().padStart(3, "0");
+          const localTimeWithMs = `${hours}:${minutes}:${seconds}.${milliseconds}`;
+          console.log(localTimeWithMs + " - BT<-" + string_check);
+          // -----------------------------------------------------------------------------
+
+          // For showing reply to shell
+          if (doc_value == "shell_command") {
+            lastreceiveTime = Date.now();
+            appendShell(string_check);
+          }
+
+          // For logging log_read to shell
+          if (doc_value == "log_read" && stop_accum == 0) {
+            store_to_log(string_check);
+          }
+
+          //================================
+          /*
+          uart:~$ sleep disable
+          Shell activity timeout disabled
+          */
+          //================================
+          // Handling "sleep disable" reply
+          if (doc_value == "sleep disable") {
+            if (string_check.includes("Shell activity timeout disabled")) {
+              // Set all to yellow first ---------------------------------------------------
+              document.getElementById("uptime-label").style.backgroundColor = "yellow";
+              document.getElementById("modemAPN-label").style.backgroundColor = "yellow";
+
+              document.getElementById("modemIMEI-label").style.backgroundColor = "yellow";
+              document.getElementById("modemState-label").style.backgroundColor = "yellow";
+              document.getElementById("modemOperatorMCCMNC-label").style.backgroundColor = "yellow";
+              document.getElementById("modemOperatorName-label").style.backgroundColor = "yellow";
+              document.getElementById("modeOperatorSelect-label").style.backgroundColor = "yellow";
+              document.getElementById("modemRadioMode-label").style.backgroundColor = "yellow";
+              document.getElementById("modemeDRX-label").style.backgroundColor = "yellow";
+              document.getElementById("modemACT-label").style.backgroundColor = "yellow";
+              document.getElementById("modemRSRP-label").style.backgroundColor = "yellow";
+              document.getElementById("modemRSRQ-label").style.backgroundColor = "yellow";
+              document.getElementById("modemRadioMode-label").style.backgroundColor = "yellow";
+              document.getElementById("modemACT-label").style.backgroundColor = "yellow";
+              document.getElementById("modemRSRP-label").style.backgroundColor = "yellow";
+              document.getElementById("modemRSRQ-label").style.backgroundColor = "yellow";
+
+              document.getElementById("mqttState-label").style.backgroundColor = "yellow";
+              document.getElementById("mqttBrokerHostname-label").style.backgroundColor = "yellow";
+              document.getElementById("mqttBrokerPort-label").style.backgroundColor = "yellow";
+              document.getElementById("mqttUsername-label").style.backgroundColor = "yellow";
+              document.getElementById("mqttTLS-label").style.backgroundColor = "yellow";
+              document.getElementById("mqttTLSSecTag-label").style.backgroundColor = "yellow";
+              document.getElementById("nodeName-label").style.backgroundColor = "yellow";
+              document.getElementById("reportInterval-label").style.backgroundColor = "yellow";
+              document.getElementById("rebootDelay-label").style.backgroundColor = "yellow";
+              document.getElementById("temperature-label").style.backgroundColor = "yellow";
+              document.getElementById("battery-label").style.backgroundColor = "yellow";
+              document.getElementById("GNSSinterval-label").style.backgroundColor = "yellow";
+              // ----------------------------------------------------------------------------
+
+              // Disable the SHELL button
+              //document.getElementById("shell_button").disabled = true;
+              //document.getElementById("shell_button").style.cursor = "none";
+              //document.getElementById("shell_button").style.backgroundColor = "#F37021"; // OFF state (Pulsar Orange)
+
+              // Send next command
+              sendAT("uptime", true);
+              CommandSent = "uptime";
+              temp_string = ""; // Reset temp string
+            }
+          }
+
+          //================
+          /*
+          uart:~$ uptime
+          Uptime: 02:05:52
+          */
+          //================
+          // Handling "uptime" reply
+          if (doc_value == "uptime") {
+            if (string_check.includes("Uptime:")) {
+              const uptime = string_check.match(/Uptime:\s+(?:(\d+)\.)?(\d{2}:\d{2}:\d{2})/);
+              const formattedUptime = uptime ? (uptime[1] ? uptime[1] + "." : "") + uptime[2] : null;
+              document.getElementById("uptime").value = formattedUptime;
+              document.getElementById("uptime-label").style.backgroundColor = "white";
+
+              // Send next command
+              sendAT("modem apn", true);
+              CommandSent = "modem apn";
+              temp_string = ""; // Reset temp string
+            }
+          }
+
+          //========================================
+          /*
+          uart:~$ modem apn
+          APN0: "wlapn.com", IP address 10.74.30.54
+          PDP Contexts Defined: 1
+          */
+          //========================================
+          // Handling "modem apn" reply
+          if (doc_value == "modem apn") {
+            temp_string += string_check + "\r\n";
+
+            // Get the APN name and IP address
+            if (string_check.includes("APN")) {
+              const apnMetrics = apn_parser(temp_string);
+              document.getElementById("modemAPN").value = apnMetrics.apn;
+              // Store the previous APN string
+              prevApnstring = apnMetrics.apn;
+            }
+
+            // Last reply string
+            if (string_check.includes("PDP Contexts Defined:")) {
+              document.getElementById("modemAPN-label").style.backgroundColor = "white";
+
+              await delay(1000);
+              // Send next command
+              sendAT("modem show", true);
+              CommandSent = "modem show";
+              temp_string = ""; // Reset temp string
+            }
+          }
+
+          //=================================================================
+          /*
+          uart:~$ modem show
+          Modem Manufacturer:    Nordic Semiconductor ASA
+          Modem Model:           nRF9160-SICA
+          Modem Revision:        mfw_nrf9160_1.3.7
+          Modem DFU ID:          e7a1c54a-b07c-4512-9c3e-8ecbbfe2641d
+          Modem IMEI:            358447177552586
+          SIM IMSI:              234107683717334
+          SIM ICCID:             8944110068455792619
+          SIM MSISDN:            (none)
+          Modem State:           ONLINE
+          Modem State Elapsed:   02:07:42
+          Modem Active Elapsed:  00:20:14
+          Modem Duty Cycle %:    15.77
+          Modem Radio Mode:      Dual
+          Modem Cell UTC Time:   (no service since reboot)
+          Modem Cell UTC Offset: (no service since reboot)
+          Modem Temperature:     22 C
+          Modem SIM State:       Initialization OK
+          Modem SIM Operator ID: Unidentified
+          Modem Operator Select: Auto
+          Modem Provided DNS1:   10.4.0.240
+          Modem Provided DNS2:   10.4.0.230
+          Modem Provided MTU:    1500
+          Modem Secondary DNS:   Not Set
+          Modem Operator MCCMNC: 23410
+          Modem Operator Name:
+          Modem STAT:            1
+          Modem ACT:             7
+          Modem TAC:             C290
+          Modem CI:              000FCC6E
+          Modem Band:            20
+          Modem RSRP:            -107 dBm
+          Modem RSRQ:            -16.5 dB
+          Modem PSM:             Disabled
+          Modem PSM TAU req:     08:00:00
+          Modem PSM Active req:  00:01:00
+          Modem eDRX:            Enabled
+          Modem eDRX value req:  10.24 sec
+          Modem eDRX value:      Current cell not using eDRX
+          Modem eDRX PTW req:    1.28 sec
+          Modem eDRX PTW:        Current cell not using eDRX
+          */
+          //==============================================================
+          // Handling "modem show" reply
+          if (doc_value == "modem show") {
+            temp_string += string_check + "\r\n";
+
+            const modemMetrics = modem_parser(temp_string);
+
+            if (string_check.includes("Modem IMEI:")) {
+              document.getElementById("modemIMEI").value = modemMetrics.modemIMEI;
+              document.getElementById("modemIMEI-label").style.backgroundColor = "white";
+            }
+
+            if (string_check.includes("Modem State:")) {
+              document.getElementById("modemState").value = modemMetrics.modemState;
+              document.getElementById("modemState-label").style.backgroundColor = "white";
+
+              if (modemMetrics.modemState == null) {
+                // Do nothing here
+              } else if (modemMetrics.modemState.includes("CONNECTING") || modemMetrics.modemState.includes("OFFLINE")) {
+                // Case 3: "Connecting" or "Offline"
+                // Modem state is "Connecting" or "offline"
+                document.getElementById("modemRadioMode").value = "";
+                document.getElementById("modemRadioMode-label").style.backgroundColor = "white";
+
+                document.getElementById("modemACT").value = "";
+                document.getElementById("modemACT-label").style.backgroundColor = "white";
+
+                document.getElementById("modemRSRP").value = "";
+                document.getElementById("modemRSRP-label").style.backgroundColor = "white";
+
+                document.getElementById("modemRSRQ").value = "";
+                document.getElementById("modemRSRQ-label").style.backgroundColor = "white";
+              }
+            }
+
+            if (string_check.includes("Modem Radio Mode:")) {
+              if (modemMetrics.modemState.includes("ONLINE")) {
+                // Show Radio Mode
+                document.getElementById("modemRadioMode").value = modemMetrics.modemRadioMode;
+                document.getElementById("modemRadioMode-label").style.backgroundColor = "white";
+                // Store the previous selected radio mode
+                prevSelectedRadioMode = modemMetrics.modemRadioMode;
+              }
+            }
+
+            if (string_check.includes("Modem Operator Select:")) {
+              if (modemMetrics.modemState.includes("ONLINE")) {
+                // Show Operator Select
+                document.getElementById("modeOperatorSelect").value = modemMetrics.modemOperatorSelect;
+                document.getElementById("modeOperatorSelect-label").style.backgroundColor = "white";
+                // Store the previous selected Operator
+                prevOpSelect = modemMetrics.modemOperatorSelect;
+              }
+            }
+
+            if (string_check.includes("Modem Operator Name:")) {
+              if (modemMetrics.modemState.includes("ONLINE")) {
+                if (isNaN(modemMetrics.modemOperatorName)) {
+                  // Show MCCMNC container
+                  document.getElementById("operator-mccmnc-container").classList.remove("hidden");
+                  // Hide Operator Name container
+                  document.getElementById("operator-name-container").classList.add("hidden");
+                  // Set the value for MCCMNC
+                  document.getElementById("modemOperatorMCCMNC").value = modemMetrics.modemOperatorMCCMNC;
+                  document.getElementById("modemOperatorMCCMNC-label").style.backgroundColor = "white";
+                } else {
+                  // Show Operator Name container
+                  document.getElementById("operator-name-container").classList.remove("hidden");
+                  // Hide MCCMNC container
+                  document.getElementById("operator-mccmnc-container").classList.add("hidden");
+                  // Set the value for Operator Name
+                  document.getElementById("modemOperatorName").value = modemMetrics.modemOperatorName;
+                  document.getElementById("modemOperatorName-label").style.backgroundColor = "white";
+                }
+              }
+            }
+
+            if (string_check.includes("Modem ACT:")) {
+              if (modemMetrics.modemState.includes("ONLINE")) {
+                // Show Modem ACT
+                document.getElementById("modemACT").value = modemMetrics.modemACT;
+                document.getElementById("modemACT-label").style.backgroundColor = "white";
+              }
+            }
+
+            if (string_check.includes("Modem RSRP:")) {
+              if (modemMetrics.modemState.includes("ONLINE")) {
+                // Show Modem RSRP in dBm
+                document.getElementById("modemRSRP").value = modemMetrics.modemRSRP + " dBm";
+                document.getElementById("modemRSRP-label").style.backgroundColor = "white";
+                if (modemMetrics.modemRSRP > -90) {
+                  document.getElementById("modemRSRP").style = "background-color:green"; // Excellent
+                } else if (modemMetrics.modemRSRP >= -105) {
+                  document.getElementById("modemRSRP").style = "background-color:yellow"; // Good
+                } else if (modemMetrics.modemRSRP >= -120) {
+                  document.getElementById("modemRSRP").style = "background-color:orange"; // Fair
+                } else {
+                  document.getElementById("modemRSRP").style = "background-color:red"; // Poor
+                }
+              }
+            }
+
+            if (string_check.includes("Modem RSRQ:")) {
+              if (modemMetrics.modemState.includes("ONLINE")) {
+                // Show Modem RSRQ in dB
+                document.getElementById("modemRSRQ").value = modemMetrics.modemRSRQ + " dB";
+                document.getElementById("modemRSRQ-label").style.backgroundColor = "white";
+                if (modemMetrics.modemRSRQ > -9) {
+                  document.getElementById("modemRSRQ").style = "background-color:green"; // Excellent
+                } else if (modemMetrics.modemRSRQ >= -12) {
+                  document.getElementById("modemRSRQ").style = "background-color:orange"; // Good
+                } else {
+                  document.getElementById("modemRSRQ").style = "background-color:red"; // Fair to Poor
+                }
+              }
+            }
+
+            if (string_check.includes("Modem eDRX:")) {
+              if (modemMetrics.modemState.includes("ONLINE")) {
+                // Show Modem eDRX
+                if (modemMetrics.modemEDRX.includes("Enabled")) {
+                  document.getElementById("modemeDRX").value = "factory_reset";
+                } else {
+                  document.getElementById("modemeDRX").value = "disable";
+                }
+                document.getElementById("modemeDRX-label").style.backgroundColor = "white";
+                // Store the previous setting
+                prevSelectedeDRX = modemMetrics.modemEDRX;
+              }
+            }
+
+            // Last reply string
+            if (string_check.includes("Modem eDRX PTW:")) {
+              //document.getElementById("modemIMEI").value = modemMetrics.modemIMEI;
+              //document.getElementById("modemState").value = modemMetrics.modemState;
+
+              // Check the modemState
+              if (modemMetrics.modemState == null) {
+                // Case 1: no modem State return
+                document.getElementById("modemIMEI-label").style.backgroundColor = "yellow";
+                document.getElementById("modemState-label").style.backgroundColor = "yellow";
+                document.getElementById("modemOperatorMCCMNC-label").style.backgroundColor = "yellow";
+                document.getElementById("modemOperatorName-label").style.backgroundColor = "yellow";
+                document.getElementById("modeOperatorSelect-label").style.backgroundColor = "yellow";
+                document.getElementById("modemRadioMode-label").style.backgroundColor = "yellow";
+                document.getElementById("modemeDRX-label").style.backgroundColor = "yellow";
+                document.getElementById("modemACT-label").style.backgroundColor = "yellow";
+                document.getElementById("modemRSRP-label").style.backgroundColor = "yellow";
+                document.getElementById("modemRSRQ-label").style.backgroundColor = "yellow";
+                document.getElementById("modemRadioMode-label").style.backgroundColor = "yellow";
+                document.getElementById("modemACT-label").style.backgroundColor = "yellow";
+                document.getElementById("modemRSRP-label").style.backgroundColor = "yellow";
+                document.getElementById("modemRSRQ-label").style.backgroundColor = "yellow";
+
+                // Retry "modem show" command
+                await sendAT("modem show", true);
+                CommandSent = "modem show";
+                temp_string = ""; // Reset temp string
+              } else if (!modemMetrics.modemState.includes("CONNECTING") && !modemMetrics.modemState.includes("OFFLINE")) {
+                // Case 2: modemState = Online
+                /*
+                if (modemMetrics.modemOperatorName.includes("Modem STAT:")) {
+                  // Show MCCMNC container
+                  document.getElementById("operator-mccmnc-container").classList.remove("hidden");
+                  // Hide Operator Name container
+                  document.getElementById("operator-name-container").classList.add("hidden");
+                  // Set the value for MCCMNC
+                  document.getElementById("modemOperatorMCCMNC").value = modemMetrics.modemOperatorMCCMNC;
+                  document.getElementById("modemOperatorMCCMNC-label").style.backgroundColor = "white";
+                } else {
+                  // Show Operator Name container
+                  document.getElementById("operator-name-container").classList.remove("hidden");
+                  // Hide MCCMNC container
+                  document.getElementById("operator-mccmnc-container").classList.add("hidden");
+                  // Set the value for Operator Name
+                  document.getElementById("modemOperatorName").value = modemMetrics.modemOperatorName;
+                  document.getElementById("modemOperatorName-label").style.backgroundColor = "white";
+                }
+                */
+                // Send next command
+                sendAT("mqtt status", true);
+                CommandSent = "mqtt status";
+                temp_string = ""; // Reset temp string
+              } else {
+                // Case 3: Modem state is "Connecting" or "Offline"
+                document.getElementById("modemRadioMode").value = "";
+                document.getElementById("modemRadioMode-label").style.backgroundColor = "white";
+
+                document.getElementById("modemACT").value = "";
+                document.getElementById("modemACT-label").style.backgroundColor = "white";
+
+                document.getElementById("modemRSRP").value = "";
+                document.getElementById("modemRSRP-label").style.backgroundColor = "white";
+
+                document.getElementById("modemRSRQ").value = "";
+                document.getElementById("modemRSRQ-label").style.backgroundColor = "white";
+              }
+            }
+          }
+
+          //==========================================================
+          /*
+          uart:~$ mqtt status
+          MQTT State:             CONNECTED
+          MQTT State Elapsed:     01:56:08
+          MQTT Last Connect Time: Jun 24 07:56:21 2025
+          MQTT Broker Hostname:   mosquitto.signal-fire.cloud
+          MQTT Broker IP Address: 18.223.231.28
+          MQTT Broker Port:       1883
+          MQTT Client ID:         358447177552586
+          MQTT QoS:               1
+          MQTT Keepalive:         450 sec
+          MQTT TLS Level:         0 - Disabled
+          MQTT TLS Security Tag:  1 - Factory Certificate
+          MQTT Unacked PUBLISH:   0
+          MQTT Unacked SUBSCRIBE: 0
+          MQTT Unacked PING:      0
+          MQTT Backlog:           0
+          */
+          //==========================================================
+          // Handling "mqtt status" reply
+          if (doc_value == "mqtt status") {
+            temp_string += string_check + "\r\n";
+
+            const mqttMetrics = mqtt_parser(temp_string);
+
+            if (string_check.includes("MQTT State:")) {
+              document.getElementById("mqttState").value = mqttMetrics.mqttState;
+              // Store previous state
+              prevMQTTstate = mqttMetrics.mqttState;
+              document.getElementById("mqttState-label").style.backgroundColor = "white";
+            }
+
+            // Last reply string
+            if (string_check.includes("MQTT Backlog:")) {
+              if (!temp_string.includes("MQTT State:")) {
+                // If not get the MQTT State, retry this command
+                document.getElementById("mqttState").value = prevMQTTstate;
+
+                document.getElementById("mqttState-label").style.backgroundColor = "yellow";
+                // Retry current command
+                await sendAT("mqtt status", true);
+                CommandSent = "mqtt status";
+                temp_string = "";
+              } else {
+                // Send next command
+                sendAT("mqtt credentials", true);
+                CommandSent = "mqtt credentials";
+                temp_string = "";
+              }
+            }
+          }
+
+          //=====================================================
+          /* 
+          // Sample Data
+          uart:~$ mqtt credentials
+          MQTT Broker Hostname:   mosquitto.signal-fire.cloud
+          MQTT Broker Port:       1883
+          MQTT Client ID:         358447177552586
+          MQTT QoS:               1
+          MQTT Keepalive:         450 sec (Auto)
+          MQTT Username:          pulsar
+          MQTT Password:          **********
+          MQTT TLS Level:         0 - Disabled
+          MQTT TLS Security Tag:  1 - Factory Certificate
+          */
+          //=======================================================
+          // Handling "mqtt credentials" reply
+          if (doc_value == "mqtt credentials") {
+            temp_string += string_check + "\r\n";
+
+            const mqttMetrics = mqtt_cred_parser(temp_string);
+
+            if (string_check.includes("MQTT Broker Hostname:")) {
+              document.getElementById("mqttBrokerHostname").value = mqttMetrics.mqttBrokerHostname;
+              prevMQTTBrokerHostname = mqttMetrics.mqttBrokerHostname;
+              document.getElementById("mqttBrokerHostname-label").style.backgroundColor = "white";
+            }
+
+            if (string_check.includes("MQTT Broker Port:")) {
+              document.getElementById("mqttBrokerPort").value = mqttMetrics.mqttBrokerPort;
+              prevMQTTBrokerPort = mqttMetrics.mqttBrokerPort;
+              document.getElementById("mqttBrokerPort-label").style.backgroundColor = "white";
+            }
+
+            if (string_check.includes("MQTT Username:")) {
+              document.getElementById("mqttUsername").value = mqttMetrics.mqttUsername;
+              prevMQTTBrokerUsername = mqttMetrics.mqttUsername;
+              document.getElementById("mqttUsername-label").style.backgroundColor = "white";
+            }
+
+            if (string_check.includes("MQTT TLS Level:")) {
+              document.getElementById("mqttTLS").value = mqttMetrics.mqttTLSLevel;
+              prevMQTTTLS = mqttMetrics.mqttTLSLevel;
+              document.getElementById("mqttTLS-label").style.backgroundColor = "white";
+            }
+
+            // Last reply string
+            if (string_check.includes("MQTT TLS Security Tag:")) {
+              document.getElementById("mqttTLSSecTag").value = mqttMetrics.mqttTLSSecurityTag;
+              prevMQTTTLSSec_tag = mqttMetrics.mqttTLSSecurityTag;
+              document.getElementById("mqttTLSSecTag-label").style.backgroundColor = "white";
+
+              // Send next command
+              sendAT("node show", true);
+              CommandSent = "node show";
+              temp_string = "";
+            }
+          }
+
+          //==================================================
+          /*
+          uart:~$ node show
+          HW Rev:          Pulsar Unite (v2)
+          HW Config:       REFLECT
+          SW Rev:          v0.1.1-v2
+          Node Name:       358447177552586
+          Report Interval: 300 sec
+          Reboot Delay:    Default
+          Node Features:   0x00000000
+          Subscription:    RPT60
+          Temperature:     23 C
+          Battery:         5.940 V
+          */
+          //=================================================
+          // Handling "node show" reply
+          if (doc_value == "node show") {
+            temp_string += string_check + "\r\n";
+
+            const nodeMetrics = node_parser(temp_string);
+
+            if (string_check.includes("Node Name:")) {
+              document.getElementById("nodeName").value = nodeMetrics.nodeName;
+              prevNodeName = nodeMetrics.nodeName;
+              document.getElementById("nodeName-label").style.backgroundColor = "white";
+            }
+
+            if (string_check.includes("Report Interval:")) {
+              document.getElementById("reportInterval").value = nodeMetrics.reportInterval;
+              prevReportInterval = nodeMetrics.reportInterval;
+              document.getElementById("reportInterval-label").style.backgroundColor = "white";
+            }
+
+            if (string_check.includes("Reboot Delay:")) {
+              if (nodeMetrics.rebootDelay == null) {
+                nodeMetrics.rebootDelay = 0;
+              }
+              document.getElementById("rebootDelay").value = nodeMetrics.rebootDelay;
+              prevrebootDelay = nodeMetrics.rebootDelay;
+              document.getElementById("rebootDelay-label").style.backgroundColor = "white";
+            }
+
+            if (string_check.includes("Subscription:")) {
+              // This extracts the minimum time for the reporting interval based on the type of subscription
+              report_interval_min = nodeMetrics.subscription.match(/RPT+(\d+)$/)[1];
+              document.getElementById("reportInterval").min = report_interval_min;
+            }
+
+            if (string_check.includes("Temperature:")) {
+              document.getElementById("temperature").value = nodeMetrics.temperature + " °C";
+              document.getElementById("temperature-label").style.backgroundColor = "white";
+            }
+
+            // Last reply string
+            if (string_check.includes("Battery:")) {
+              document.getElementById("battery").value = nodeMetrics.battery + " V";
+              document.getElementById("battery-label").style.backgroundColor = "white";
+
+              // Send next command
+              sendAT("gnss status", true);
+              CommandSent = "gnss status";
+              temp_string = "";
+            }
+          }
+
+          //===========================================
+          /*
+          GNSS Currently:            Inactive
+          GNSS Priority:             Enabled
+          GNSS State Elapsed:        2360 sec
+          GNSS Accuracy Target:      50
+          GNSS Fix Target:           10
+          GNSS Max Fix Duration:     300 sec
+          GNSS Last Fix Duration:    0 sec
+          GNSS Auto-update disabled
+          No GNSS fix in history
+          */
+          //===========================================
+          // Handling "gnss status" reply
+          if (doc_value == "gnss status") {
+            temp_string += string_check + "\r\n";
+
+            // Last reply string
+            if (string_check.includes("GNSS Auto-update")) {
+              document.getElementById("GNSSinterval-label").style.backgroundColor = "white";
+
+              const autoUpdateMatch = temp_string.match(/GNSS Auto-update (disabled|interval:\s+(\d+)\s+sec)/i);
+              const autoUpdateInterval = autoUpdateMatch ? (autoUpdateMatch[1] === "disabled" ? 0 : parseFloat(autoUpdateMatch[2])) : null;
+              document.getElementById("GNSSinterval").value = autoUpdateInterval;
+              prevgnssInterval = autoUpdateInterval;
+              temp_string = "";
+
+              // Enable the SHELL button
+              //document.getElementById("shell_button").disabled = false;
+              //document.getElementById("shell_button").style.cursor = "pointer";
+              //document.getElementById("shell_button").style.backgroundColor = "#33B34A"; // ON state (Pulsar Green)
+            }
+          }
+          // -----------------------------------------
         }
       }
     }
   } catch (error) {
+    console.error("line 3229: Error in incomingData:", error);
     setTimeout(reload_webpage);
   }
 }
 
-function contSensorMode_bt() {
+async function contSensorMode_bt() {
   if (connectionType === "serial") {
     sendTX("/P239:5");
     CommandSent = "/P239:5";
   } else if (connectionType === "bluetooth") {
-    sendAT("/P239:5");
+    await delay(1000);
+    await sendAT("/P239:5");
     CommandSent = "/P239:5";
   }
 }
@@ -2864,6 +3494,7 @@ async function connectToSerialPort() {
   }
 }
 async function sendTX(data, isHex = false) {
+  //console.log("USB->" + data); // For debug only
   try {
     if (!port) {
       log(lang_map[161]);
@@ -2929,7 +3560,7 @@ async function sendTX(data, isHex = false) {
     await writer.write(encodedData);
     writer.releaseLock();
   } catch (error) {
-    console.error("Error sending data:", error);
+    console.error("line 3563: Error sending data:", error);
     log(lang_map[162]);
   }
 }
@@ -3044,9 +3675,27 @@ async function ble_connect() {
 //     log(lang_map[78] + error); //log('Failed: ' + error);
 //   }
 // }
-async function sendAT(cmd) {
-  CommandSent = cmd;
 
+// Function to send cmd to
+// Input: cmd - command to send
+//        IsShell - Is sending in BT Shell? [default = false]
+async function sendAT(cmd, IsShell = false) {
+  // If it is send in Shell, need to append "bt_shell,"
+  if (IsShell == true) {
+    cmd = "bt_shell," + cmd;
+  }
+/*
+  // ----------------------------------------------------------------------
+  // For debug in console only
+  const now = new Date();
+  const hours = now.getHours().toString().padStart(2, "0");
+  const minutes = now.getMinutes().toString().padStart(2, "0");
+  const seconds = now.getSeconds().toString().padStart(2, "0");
+  const milliseconds = now.getMilliseconds().toString().padStart(3, "0");
+  const localTimeWithMs = `${hours}:${minutes}:${seconds}.${milliseconds}`;
+  console.log(localTimeWithMs + " - BT->" + cmd);
+  // -----------------------------------------------------------------------
+*/
   CommandSent = cmd;
   if (cmd === "AT+PWRLVL") {
     cmd_sent = "AT+PWRLVL";
@@ -3079,7 +3728,11 @@ async function sendAT(cmd) {
     if (cmd_sent == "AT+PWRLVL" && power_init_query == 0) {
       log(lang_map[82]); //log(' → Checking bluetooth power level');
     } else {
-      log(" → " + cmd);
+      if (shell_open == 1 || cloudModal_open == 1) {
+        // Dont log bt shell cmd in DATA LOG for cloud setting page
+      } else {
+        log(" → " + cmd);
+      }
     }
   }
 
@@ -4205,20 +4858,42 @@ var arbitraryLine = {
     ctx.fillStyle = "yellow";
     //ctx.fillRect(x.getPixelForValue(0), top, near_blanking_var*width/compensated_var, height); // Near blanking area (x.getPixelForValue(0), top, 0.3*width/7.2, height)
     start_point = Math.max(x.getPixelForValue(0), left);
-    width_val = Math.max(x.getPixelForValue((near_blanking_var * width) / compensated_var), left) - start_point;
+    //width_val = Math.max(x.getPixelForValue((near_blanking_var * width) / compensated_var), left) - start_point;
+
+    // Show Near blanking area from left to P107
+    width_val = Math.max(x.getPixelForValue((near_blanking_var * 200) / compensated_var), left) - start_point;
     ctx.fillRect(start_point, top, width_val, height); // Near blanking area
 
     //console.log(start_point + ", " + near_blanking_var*width/compensated_var + ", " + width_val);
 
     ctx.fillStyle = "#EFFFE8";
     //ctx.fillRect(x.getPixelForValue((200.0/1.2)*(empty_distance - span_val)/mode_var), top, span_val*width/compensated_var, height); // Span
-    start_point = Math.max(x.getPixelForValue(((200.0 / ((100.0 + far_blanking_var) / 100.0)) * (empty_distance - span_val)) / mode_var), left);
-    width_val = Math.max(x.getPixelForValue(((200.0 / ((100.0 + far_blanking_var) / 100.0)) * empty_distance) / mode_var), left) - start_point;
+    //start_point = Math.max(x.getPixelForValue(((200.0 / ((100.0 + far_blanking_var) / 100.0)) * (empty_distance - span_val)) / mode_var), left);
+    //width_val = Math.max(x.getPixelForValue(((200.0 / ((100.0 + far_blanking_var) / 100.0)) * empty_distance) / mode_var), left) - start_point;
+
+    // Show Span area from Empty distance back to near blanking or P106
+    if (span_val > empty_distance - near_blanking_var) {
+      // Case 1:
+      // If SPAN value is greater than the measuring region.
+      // From Near blanking (P107) to Empty distance (P105)
+      start_point = Math.max(x.getPixelForValue((near_blanking_var * 200) / compensated_var), left);
+    } else {
+      // Case 2:
+      // If SPAN value is smaller than or equal to the measuring region.
+      // On the Trace, it will show a white region between near blanking and span.
+      // Calculate from (Empty distance (P105) - SPAN (P106)) to Empty distance (P105)
+      start_point = Math.max(x.getPixelForValue(((empty_distance - span_val) * 200) / compensated_var), left);
+    }
+    width_val = Math.max(x.getPixelForValue((empty_distance * 200) / compensated_var), left) - start_point;
     ctx.fillRect(start_point, top, width_val, height); // Span
 
     ctx.fillStyle = "yellow";
-    start_point = Math.max(x.getPixelForValue(((200.0 / ((100.0 + far_blanking_var) / 100.0)) * empty_distance) / mode_var), left);
-    width_val = Math.max(x.getPixelForValue(((200.0 / ((100.0 + far_blanking_var) / 100.0)) * far_blanking_dist) / mode_var), left) - start_point;
+    //start_point = Math.max(x.getPixelForValue(((200.0 / ((100.0 + far_blanking_var) / 100.0)) * empty_distance) / mode_var), left);
+    //width_val = Math.max(x.getPixelForValue(((200.0 / ((100.0 + far_blanking_var) / 100.0)) * far_blanking_dist) / mode_var), left) - start_point;
+
+    // Show Far blanking area from Empty distance (P105) to Far blanking % (P108)
+    start_point = Math.max(x.getPixelForValue((empty_distance * 200) / compensated_var), left);
+    width_val = Math.max(x.getPixelForValue((((empty_distance * (100 + far_blanking_var)) / 100) * 200) / compensated_var), left) - start_point;
     ctx.fillRect(start_point, top, width_val, height); // Far blanking area
 
     if (Math.max(x.getPixelForValue((distance_var * 200) / compensated_var), left) <= x.getPixelForValue((distance_var * 200) / compensated_var)) {
