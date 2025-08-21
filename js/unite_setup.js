@@ -24,6 +24,24 @@ function cloud_setup() {
  * and begins the refresh of the metrics.
  */
 function openCloudModal() {
+  // Override size of the cloud setup page here if using a phone
+  if (
+    navigator.userAgent.match(/iPad|iPod|iPhone/i) || // Using iPhone
+    navigator.userAgent.match(/Android/i) || // Using android phone
+    navigator.userAgent.match(/BlackBerry/i) || // Using Blackberry
+    navigator.userAgent.match(/IEMobile/i) // Using window phone
+  ) {
+    document.getElementById("id_unite_setup_modal").style.padding = "0px";
+    document.getElementById("id_unite_setup_modal_column1").style = "width : 600px; padding: 0px;";
+    document.getElementById("id_unite_setup_modal_column2").style = "width : 600px; padding: 0px;";
+    document.getElementById("id_unite_setup_modal_section1").style.padding = "10px";
+    document.getElementById("id_unite_setup_modal_section2").style.padding = "10px";
+    document.getElementById("id_unite_setup_modal_section3").style.padding = "10px";
+    document.getElementById("id_unite_setup_modal_section4").style.padding = "10px";
+    document.getElementById("id_unite_setup_modal_section5").style.padding = "10px";
+    document.getElementById("id_unite_setup_modal_section6").style.padding = "10px";
+  }
+
   document.getElementById("modal_setup").style.display = "block";
   document.getElementById("modalOverlay").style.display = "block";
   document.getElementById("operator-mccmnc-container").classList.add("hidden");
