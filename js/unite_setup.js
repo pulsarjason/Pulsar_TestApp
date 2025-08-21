@@ -24,6 +24,12 @@ function cloud_setup() {
  * and begins the refresh of the metrics.
  */
 function openCloudModal() {
+  document.getElementById("modal_setup").style.display = "block";
+  document.getElementById("modalOverlay").style.display = "block";
+  document.getElementById("operator-mccmnc-container").classList.add("hidden");
+  config_modalUI(0); // Disable the modal UI
+  startRefresh();
+
   // Override size of the cloud setup page here if using a phone
   if (
     navigator.userAgent.match(/iPad|iPod|iPhone/i) || // Using iPhone
@@ -41,12 +47,6 @@ function openCloudModal() {
     document.getElementById("id_unite_setup_modal_section5").style.padding = "10px";
     document.getElementById("id_unite_setup_modal_section6").style.padding = "10px";
   }
-
-  document.getElementById("modal_setup").style.display = "block";
-  document.getElementById("modalOverlay").style.display = "block";
-  document.getElementById("operator-mccmnc-container").classList.add("hidden");
-  config_modalUI(0); // Disable the modal UI
-  startRefresh();
 }
 
 /**
