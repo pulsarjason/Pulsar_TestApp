@@ -1523,7 +1523,7 @@
           <td style=" text-align:center;font-size:24px;  background-color:rgb(51, 179, 74);;color:#2e2323;">
             <p
               style="font-family:'Segoe UI Normal';  width: 0%; text-align:right; color:#ffffff; font-size:12pt;line-height:40px; font-style: italic;">
-              &alpha;2.2.7<br></p>
+              &alpha;2.2.8<br></p>
           </td>
         </tr>
       </table>
@@ -1643,9 +1643,9 @@
           <h3 id="MQTTStatus_unite">MQTT Status &#9729;</h3>
           <div class="modal-item">
             <label id="mqttState-label" for="mqttState">State:</label>
-            <input type="text" id="mqttState" value="" readonly>
             <button id="MQTTToggleButton" onclick="toggleMQTTConnection()"
-              style="font-size: 24pt; font-weight: bold; background-color: #F37021; color: white; padding: 10px 20px; border-radius: 5px; border: none; cursor: pointer;">&olarr;</button>
+              style="font-size: 35pt; font-weight: bold; background-color: #F37021; color: white; padding: 5px 10px; border-radius: 5px; border: none; cursor: pointer;">&olarr;</button>
+            <input type="text" id="mqttState" value="" readonly>
           </div>
           <div class="modal-item">
             <label id="mqttBrokerHostname-label" for="mqttBrokerHostname">Broker Hostname:</label>
@@ -1656,10 +1656,10 @@
             <input type="text" id="mqttBrokerPort" autocomplete="off" value="" readonly>
           </div>
           <div class="modal-item">
-            <label id="mqttUsername-label" for="mqttUsername">Username:</label>
-            <input type="text" id="mqttUsername" autocomplete="off" value="" readonly>
+            <label id="mqttUsername-label" for="mqttUsername">User-name:</label>
             <button id="PasswordtoggleButton" disabled="true" onclick="togglePassword()"
-              style="font-size: 24pt; font-weight: bold; background-color: #F37021; color: white; padding: 10px 20px; border-radius: 5px; border: none; cursor: pointer;">*</button>
+              style="font-size: 40pt; font-weight: bold; background-color: #F37021; color: white; padding: 5px 15px; border-radius: 5px; border: none; cursor: pointer;">*</button>
+            <input type="text" id="mqttUsername" autocomplete="off" value="" readonly>
           </div>
           <div class="modal-item">
             <label id="mqttPassword-label" for="mqttPassword" style="display: none;">Password:</label>
