@@ -1791,7 +1791,8 @@ async function listenRX() {
             // Update UI elements with the received device information
             document.querySelector(".static_image img").src = "img/Picture1.png";
             document.getElementById("id_title").textContent = "REFLECT-E";
-            document.getElementById("reflecte_devinfo-label").textContent = lang_map[152];
+            document.getElementById("reflecte_devinfo-label").textContent = navigator.userAgent; // for test show useragent
+            //document.getElementById("reflecte_devinfo-label").textContent = lang_map[152];
             document.getElementById("device_title").innerHTML = reflecte_name;
             document.getElementById("deviceInfo-box").innerText = `REFLECT-E: ${reflecte_name}`;
             document.getElementById("reflecte_fwversion-box").innerText = `version ${reflecte_fwversion}`;
@@ -2416,7 +2417,7 @@ async function incomingData(event) {
         doc_value == "SENDPART2" ||
         doc_value == "SENDPART3"
       ) {
-/*
+        /*
         // --------------------------------------------------------------------------
         // For debug in console only
         const now = new Date();
@@ -2517,7 +2518,8 @@ async function incomingData(event) {
 
             // Update UI elements with the received device information
             document.getElementById("id_title").textContent = "REFLECT-E";
-            document.getElementById("reflecte_devinfo-label").textContent = lang_map[152];
+            //document.getElementById("reflecte_devinfo-label").textContent = lang_map[152];
+            document.getElementById("reflecte_devinfo-label").textContent = navigator.userAgent; // For test, show userAgent
             document.getElementById("device_title").innerHTML = device.name;
             document.getElementById("deviceInfo-box").innerText = `REFLECT-E: ${reflecte_name}`;
             document.getElementById("reflecte_fwversion-box").innerText = `version ${reflecte_fwversion}`;
