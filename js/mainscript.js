@@ -390,7 +390,20 @@ function trace_start() {
     clearTimeout(param_tid);
     //p104_tid = setInterval(p104_start, 1000);//5000);
     //param_set1_tid = setInterval(param_set1_start, 5000);
-    param_set1_start();
+    if (isReflectE == 1) {
+      if (connectionType === "bluetooth") {
+        sendAT("/r"); // Send dummy cmd to wake up the UART
+      }
+      // After 1s, change P239 to 5, so it can get echo and datem trace
+      setTimeout(() => {
+        contSensorMode_bt(); // Change P239 to 5
+        setTimeout(() => {
+          param_set1_start(); // After 4s, call get sendpart1
+        }, 4000);
+      }, 1000);
+    } else {
+      param_set1_start();
+    }
     //button_press = 14;
   }
 }
@@ -1872,13 +1885,13 @@ async function listenRX() {
                 break;
             }
             document.getElementById("reflecte_access-box").innerText = access_string;
-            // Need access level for enable Update firmware and Cloud setting
+            // Need access level for enable Update firmware
             if (reflecte_access >= 2 && reflecte_access <= 4) {
-              // Allow update firmware and use cloud setting
-              document.getElementById("btnbl").style.display = "";  // Show Update fw button
+              // Allow update firmware
+              document.getElementById("btnbl").style.display = ""; // Show Update fw button
             } else {
-              // Not allow update firmware and use cloud setting
-              document.getElementById("btnbl").style.display = "none";  // Hide Update fw button
+              // Not allow update firmware
+              document.getElementById("btnbl").style.display = "none"; // Hide Update fw button
             }
 
             // For REFLECT-E only
@@ -2007,13 +2020,13 @@ async function processReceivedData() {
           document.getElementById("btnprod").style.display = "none";
         }
 
-        // Need access level for enable Update firmware and Cloud setting
+        // Need access level for enable Update firmware
         if (afterColon.includes("CUSTOMER")) {
-          // Not allow update firmware and use cloud setting
-          document.getElementById("btnbl").style.display = "none";  // Hide Update fw button
+          // Not allow update firmware
+          document.getElementById("btnbl").style.display = "none"; // Hide Update fw button
         } else {
-          // Allow update firmware and use cloud setting
-          document.getElementById("btnbl").style.display = "";  // Show Update fw button
+          // Allow update firmware
+          document.getElementById("btnbl").style.display = ""; // Show Update fw button
         }
       }
     }
@@ -2519,8 +2532,19 @@ function interpretHex(incoming_data) {
   }
   return a;
 }
+
+let isBusy = false;
+
 // Incoming GATT notification was received
 async function incomingData(event) {
+  console.log("incomingData - in");
+  // Try to prevent crash if receving BT data callback overlapping
+  if (isBusy) {
+    //setTimeout(() => incomingData(event), 50); // Retry after 100ms
+    console.log("incomingData - Busy");
+    return;
+  }
+  isBusy = true; // Set flag
   try {
     // Read data from BLE CodeLess peer
     let readInValue = await outboundChar.readValue();
@@ -2745,12 +2769,12 @@ async function incomingData(event) {
                 break;
             }
             document.getElementById("reflecte_access-box").innerText = access_string;
-            // Need access level for enable Update firmware and Cloud setting
+            // Need access level for enable Update firmware
             if (reflecte_access >= 2 && reflecte_access <= 4) {
-              // Allow update firmware and use cloud setting
+              // Allow update firmware
               document.getElementById("btnbl").style.display = ""; // Show Update fw button
             } else {
-              // Not allow update firmware and use cloud setting
+              // Not allow update firmware
               document.getElementById("btnbl").style.display = "none"; // Hide Update fw button
             }
 
@@ -2990,6 +3014,7 @@ async function incomingData(event) {
               document.getElementById("uptime").value = formattedUptime;
               document.getElementById("uptime-label").style.backgroundColor = "white";
 
+              await delay(1000); // Delay for 1s
               // Send next command
               sendAT("modem apn", true);
               CommandSent = "modem apn";
@@ -3494,7 +3519,11 @@ async function incomingData(event) {
   } catch (error) {
     console.error("Error in incomingData:", error);
     setTimeout(reload_webpage);
+  } finally {
+    isBusy = false;
   }
+
+  console.log("incomingData - out");
 }
 
 async function contSensorMode_bt() {
@@ -3800,6 +3829,15 @@ async function sendTX(data, isHex = false) {
 
 // Function to toggle connection type
 function toggle_connection_type() {
+  // ---------------------------------------------
+/*
+  // For test record trace to hir file
+  start_record_trace_to_hir();
+  add_record_trace_to_hir(1);
+  add_record_trace_to_hir(2);
+  store_record_trace_to_hir();
+*/
+  // ---------------------------------------------
   if (connectionType === "serial") {
     connectionType = "bluetooth";
     document.getElementById("connectionImage").src = "img/new_bt_disconnected-cropped.svg";
@@ -3826,7 +3864,7 @@ function toggle_connection_type() {
       document.getElementById("reflecte_devinfo").style.display = "block";
       //document.getElementById("cloudTunnelImg").src = "img/cloud-tunneling-off.svg";
       //document.getElementById("cloudTunnelImg").style.display = "block";
-      document.getElementById("btnbl").style.display = "none";     // Hide Update fw button
+      document.getElementById("btnbl").style.display = "none"; // Hide Update fw button
       setTimeout(reload_webpage, 1000);
     }
   }
