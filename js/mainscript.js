@@ -2542,7 +2542,7 @@ async function incomingData(event) {
   if (isBusy) {
     //setTimeout(() => incomingData(event), 50); // Retry after 100ms
     console.log("incomingData - Busy");
-    return;
+    //  return; // Seem this will cause issue, try to comment it
   }
   isBusy = true; // Set flag
   try {
@@ -2573,7 +2573,7 @@ async function incomingData(event) {
     if (isIgnore == 1) {
       isIgnore = 0;
       console.log("Ignore 1 happen! cmd = " + doc_value);
-      console.log(`Data received (ASCII): ${string_check}`);
+      console.log(`Data received (ASCII)1: ${string_check}`);
       return; //--> need to check
     }
 
@@ -2606,7 +2606,7 @@ async function incomingData(event) {
         // else if ((button_press == 11) || ((button_press == 8) && (doc_value == "GET DATEM")))
         //   log(" ← DATEM Received");
       } else {
-        console.log(`Data received (ASCII): ${string_check}`);
+        console.log(`Data received (ASCII)2: ${string_check}`);
 
         //alert(string_check + "3");
         if (string_check.includes("Entered PASSTHROUGH mode")) {
@@ -3830,7 +3830,7 @@ async function sendTX(data, isHex = false) {
 // Function to toggle connection type
 function toggle_connection_type() {
   // ---------------------------------------------
-/*
+  /*
   // For test record trace to hir file
   start_record_trace_to_hir();
   add_record_trace_to_hir(1);
